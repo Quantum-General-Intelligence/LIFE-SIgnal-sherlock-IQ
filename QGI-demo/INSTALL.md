@@ -1,4 +1,4 @@
-# QGI-DEMO — Install Guide (Phase 0 + 1)
+# QGI-DEMO — Install Guide (Phase 0 + 1 + 2)
 
 Assumes both repos live side-by-side:
 
@@ -71,6 +71,7 @@ cp -v "$OVERLAY/supabase/migrations/20260620_qgi_social_verification.sql" \
 
 # Client + components
 cp -v "$OVERLAY/src/vertical/lib/lsiqClient.ts"                    src/vertical/lib/
+cp -v "$OVERLAY/src/vertical/lib/qgiAgents.ts"                     src/vertical/lib/
 cp -v "$OVERLAY/src/vertical/components/SocialDiscoveryPanel.tsx"  src/vertical/components/
 cp -v "$OVERLAY/src/vertical/components/SocialVerificationTab.tsx" src/vertical/components/
 
@@ -133,13 +134,95 @@ npm run dev
 
 ---
 
+---
+
+## Phase 2 — QSS agent + additive scorecard
+
+Already in place if you applied the overlay above. The tab renders two
+additional `AgentInsightPanel`s below the Discovery panel:
+
+- **Quantum Social Signals** (`socialsym`) — posts to `/api/qss/signals`
+  with declared handles + discovery hits, returns a list of `QSSSignal`s.
+- **Second-Look Recommendation** (`secondlooksym`) — posts to
+  `/api/qss/second-look`, returns an additive-only recommendation
+  (`approve_lift` / `conditional_lift` / `no_change`).
+
+### 2.1 Pick a QSS provider on LSIQ
+
+```bash
+# Default — zero-dependency deterministic stub, suitable for demos.
+export QSS_PROVIDER=stub
+
+# Later (phase 4): real algo over HTTP.
+# export QSS_PROVIDER=http
+# export QSS_HTTP_URL=https://qss.example.com
+# export QSS_HTTP_TOKEN=…
+
+qgi-life-signals-iq-web --host 127.0.0.1 --port 8765
+```
+
+### 2.2 Pass loan context into the tab (optional but recommended)
+
+In `LoanDetail.tsx`, extend the tab invocation to forward FICO/DTI/LTV/verdict
+so the scorecard reasons about the real loan:
+
+```tsx
+<SocialVerificationTab
+  loanId={loanId!}
+  borrowerId={loan?.primary_borrower_id}
+  defaultUsername={loan?.primary_borrower_handle}
+  loanFacts={{
+    fico: loan?.fico,
+    dti: loan?.dti,
+    ltv: loan?.ltv,
+    aus_verdict: loan?.aus_verdict,
+    self_employed: loan?.self_employed,
+    declared_business_type: loan?.declared_business_type,
+  }}
+/>
+```
+
+Without this, the scorecard still runs but treats everything as neutral
+defaults.
+
+### 2.3 Python tests (run from this repo)
+
+```bash
+cd LIFE-SIgnal-sherlock-IQ
+python3 -m pytest tests/qgi_demo/ -q
+# expected: 642 passed
+```
+
+The suite exhaustively walks every 5^4 combination of signal outcomes
+and asserts the additive-only invariant holds in each one.
+
+### 2.4 End-to-end demo flow (phase 0 + 1 + 2)
+
+1. Officer opens the loan → **Social** tab.
+2. Enters handle, hits *Run discovery* → tiles stream in.
+3. Expands **Quantum Social Signals** → hits *Run* → QSS signals render.
+4. Expands **Second-Look Recommendation** → hits *Run* → scorecard
+   returns `approve_lift / conditional_lift / no_change` with feature
+   rows and a disclaimer.
+5. Flips to **Activity** tab → three audit entries:
+   `social_verification_run`, `social_verification_qss_run`,
+   `social_verification_second_look_run`.
+6. In Supabase Studio → `public.social_verifications` row now carries
+   `discovery_json`, `qss_signals`, `second_look_json`.
+
+---
+
 ## Acceptance checklist
 
 - [ ] `curl /api/meta` shows `auth_required: true`, `cors_configured: true`.
 - [ ] `curl /api/sites` returns `401` without token, `200` with token.
 - [ ] Browser console shows no CORS errors when the tab streams.
-- [ ] `social_verifications` row is created on every run.
-- [ ] `loan_activity_log` row with `action = social_verification_run` appears.
+- [ ] `social_verifications` row is created on every discovery run.
+- [ ] After running `socialsym`, the row gains `qss_provider`, `qss_version`, `qss_signals`.
+- [ ] After running `secondlooksym`, the row gains `second_look_json`.
+- [ ] `loan_activity_log` rows: `social_verification_run`,
+      `social_verification_qss_run`, `social_verification_second_look_run`.
+- [ ] `pytest tests/qgi_demo/` — 642 passed.
 - [ ] Turning `VITE_QGI_DEMO_SOCIAL_VERIFY=false` hides the tab entirely.
 - [ ] No committed `.env*` files in either repo's `git status`.
 

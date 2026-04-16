@@ -58,6 +58,103 @@ export interface LSIQSearchResponse {
   error?: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// QSS (phase 2) — mirrors sherlock_project/web/qss/base.py 1:1
+// ---------------------------------------------------------------------------
+
+export interface SocialHandle {
+  platform: string;
+  username: string;
+  url?: string;
+}
+
+export interface DiscoveryHit {
+  site: string;
+  url: string;
+  status_key: string;
+  context?: string | null;
+}
+
+export interface LoanFacts {
+  fico?: number;
+  dti?: number;
+  ltv?: number;
+  aus_verdict?: "APPROVE" | "REFER" | "REFER_WITH_CAUTION" | "DENY";
+  self_employed?: boolean;
+  declared_business_type?: string;
+}
+
+export interface QSSRequest {
+  loan_id: string;
+  declared_handles?: SocialHandle[];
+  discovery?: DiscoveryHit[];
+  loan_facts?: LoanFacts;
+}
+
+export type SignalOutcome =
+  | "confirmed"
+  | "partial"
+  | "absent"
+  | "conflict"
+  | "unknown";
+
+export interface SignalEvidence {
+  kind: "profile" | "post" | "footprint" | "metadata" | "stub";
+  description: string;
+  source_url?: string | null;
+}
+
+export interface QSSSignal {
+  name: string;
+  outcome: SignalOutcome;
+  confidence: number;
+  rationale: string;
+  evidence: SignalEvidence[];
+}
+
+export interface QSSResponse {
+  provider: string;
+  provider_version: string;
+  loan_id: string;
+  signals: QSSSignal[];
+  summary: string;
+  warnings: string[];
+}
+
+export type SecondLookOutcome =
+  | "approve_lift"
+  | "conditional_lift"
+  | "no_change";
+
+export interface SecondLookFeature {
+  name: string;
+  weight: number;
+  awarded: number;
+  reason: string;
+}
+
+export interface SecondLookResponse {
+  loan_id: string;
+  outcome: SecondLookOutcome;
+  score: number;
+  max_score: number;
+  features: SecondLookFeature[];
+  rationale: string;
+  disclaimer: string;
+}
+
+export interface SecondLookRequest {
+  loan_id: string;
+  loan_facts: LoanFacts;
+  qss_response: QSSResponse;
+}
+
+export interface QSSMeta {
+  provider: string | null;
+  provider_version?: string;
+  error?: string;
+}
+
 export type LSIQStreamEvent =
   | { type: "meta"; username: string; total: number; version: string }
   | { type: "start"; username: string }
@@ -124,6 +221,49 @@ export async function lsiqSites(
   if (!res.ok) throw new Error(`LSIQ sites failed: ${res.status}`);
   const json = (await res.json()) as { count: number; sites: LSIQSite[] };
   return json.sites;
+}
+
+export async function lsiqQssMeta(signal?: AbortSignal): Promise<QSSMeta> {
+  const res = await fetch(`${baseUrl()}/api/qss/meta`, {
+    headers: authHeaders(),
+    signal,
+  });
+  if (!res.ok) throw new Error(`LSIQ qss meta failed: ${res.status}`);
+  return res.json();
+}
+
+export async function lsiqQssSignals(
+  req: QSSRequest,
+  signal?: AbortSignal
+): Promise<QSSResponse> {
+  const res = await fetch(`${baseUrl()}/api/qss/signals`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    signal,
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`LSIQ qss/signals failed: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
+export async function lsiqSecondLook(
+  req: SecondLookRequest,
+  signal?: AbortSignal
+): Promise<SecondLookResponse> {
+  const res = await fetch(`${baseUrl()}/api/qss/second-look`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    signal,
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`LSIQ qss/second-look failed: ${res.status} ${body}`);
+  }
+  return res.json();
 }
 
 export async function lsiqSearch(

@@ -35,6 +35,14 @@ from sherlock_project.notify import QueryNotify
 from sherlock_project.result import QueryResult, QueryStatus
 from sherlock_project.sherlock import sherlock as run_sherlock
 from sherlock_project.sites import SitesInformation
+from sherlock_project.web.qss import (
+    QSSRequest,
+    QSSResponse,
+    SecondLookRequest,
+    SecondLookResponse,
+    get_provider,
+    run_second_look,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -391,6 +399,54 @@ async def search_stream(
 def _sse(event: str, data: dict[str, Any]) -> bytes:
     payload = json.dumps(data, default=str)
     return f"event: {event}\ndata: {payload}\n\n".encode("utf-8")
+
+
+# ---------------------------------------------------------------------------
+# QSS endpoints (phase 2)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/qss/signals", response_model=QSSResponse)
+def qss_signals(req: QSSRequest) -> QSSResponse:
+    """Run the configured QSSProvider over a discovery payload.
+
+    Selection is env-driven: ``QSS_PROVIDER`` defaults to ``stub``. The
+    provider is cached per-process; changes to the env var require a
+    server restart.
+    """
+    try:
+        provider = get_provider()
+    except NotImplementedError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return provider.evaluate(req)
+
+
+@app.post("/api/qss/second-look", response_model=SecondLookResponse)
+def qss_second_look(req: SecondLookRequest) -> SecondLookResponse:
+    """Run the additive-only scorecard over a QSSResponse + loan facts.
+
+    The scorecard is pure — no provider call, no network — so this is
+    safe to invoke repeatedly. Enforces the additive-only invariant at
+    runtime; a bug that tries to subtract points becomes an HTTP 500.
+    """
+    try:
+        return run_second_look(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/qss/meta")
+def qss_meta() -> dict[str, Any]:
+    """Which QSS backend is wired in right now, and at what version."""
+    try:
+        provider = get_provider()
+    except (NotImplementedError, ValueError) as exc:
+        return {"provider": None, "error": str(exc)}
+    return {
+        "provider": provider.name,
+        "provider_version": provider.version,
+    }
 
 
 @app.get("/", response_class=HTMLResponse)

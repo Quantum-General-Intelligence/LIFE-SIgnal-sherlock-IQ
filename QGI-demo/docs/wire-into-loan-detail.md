@@ -64,10 +64,22 @@ Change to:
       loanId={loanId!}
       borrowerId={loan?.primary_borrower_id /* or whatever your field is */}
       defaultUsername={loan?.primary_borrower_handle /* optional */}
+      loanFacts={{
+        fico: loan?.fico,
+        dti: loan?.dti,
+        ltv: loan?.ltv,
+        aus_verdict: loan?.aus_verdict,
+        self_employed: loan?.self_employed,
+        declared_business_type: loan?.declared_business_type,
+      }}
     />
   </TabsContent>
 )}
 ```
+
+`loanFacts` is optional — omit it to run the scorecard with neutral
+defaults. When present, it flows into the `secondlooksym` agent panel
+and drives the actual recommendation.
 
 If `loan` doesn't have a borrower-handle column yet, just pass
 `defaultUsername={undefined}` — the officer types the handle in the panel

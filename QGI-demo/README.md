@@ -23,10 +23,11 @@ QGI-demo/
 │   │   └── 20260620_qgi_social_verification.sql
 │   └── src/vertical/
 │       ├── lib/
-│       │   └── lsiqClient.ts                  ← LSIQ HTTP/SSE client
+│       │   ├── lsiqClient.ts                  ← LSIQ HTTP/SSE client + QSS types
+│       │   └── qgiAgents.ts                   ← socialsym + secondlooksym shims
 │       └── components/
 │           ├── SocialDiscoveryPanel.tsx       ← phase 1 SSE tile grid
-│           └── SocialVerificationTab.tsx      ← tab content orchestrator
+│           └── SocialVerificationTab.tsx      ← tab + 2 AgentInsightPanel panels
 ├── scripts/
 │   └── rotate-qwork-secrets.sh                ← phase-0 secret rotation
 └── docs/
@@ -38,7 +39,7 @@ QGI-demo/
 
 - [x] **Phase 0 — Plumbing.** LSIQ CORS + bearer auth (done in this repo's `sherlock_project/web/app.py`), env wiring, secret rotation, Supabase migrations.
 - [x] **Phase 1 — Discovery tab.** SSE-driven tile panel, new LoanDetail tab behind feature flag `VITE_QGI_DEMO_SOCIAL_VERIFY`, persists discovery results to `social_verifications.discovery_json`.
-- [ ] **Phase 2 — QSS agent + scorecard.** Not included. Lands in `@qgi/core` (or shimmed in `src/vertical/lib/qgiAgents.ts`) later.
+- [x] **Phase 2 — QSS agent + scorecard.** Python QSS module (`sherlock_project/web/qss/`), two `AgentInsightPanel` panels wired into the tab (`socialsym`, `secondlooksym`), `qgiAgents.ts` shim, additive-only scorecard with 642 invariant tests passing.
 - [ ] **Phase 3 — Compliance polish.** Consent dialog, activity wiring, disclaimer banners.
 - [ ] **Phase 4 — Real QSS handoff.** Flip `QSS_PROVIDER=http`.
 
