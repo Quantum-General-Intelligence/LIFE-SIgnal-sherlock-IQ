@@ -1,6 +1,6 @@
 # QGI-DEMO — Social Verification Overlay for qwork-underwriting
 
-> **Status:** Phase 0 + Phase 1 scaffold. Dev-env only. Client brand is intentionally neutral: **QGI-DEMO**.
+> **Status:** Phases 0 → 3 complete. Dev-env only. Client brand is intentionally neutral: **QGI-DEMO**.
 
 This folder contains everything that needs to land in the private
 `qwork-underwriting` repo to add a **Social Verification** tab to the
@@ -25,8 +25,11 @@ QGI-demo/
 │       ├── lib/
 │       │   ├── lsiqClient.ts                  ← LSIQ HTTP/SSE client + QSS types
 │       │   └── qgiAgents.ts                   ← socialsym + secondlooksym shims
+│       ├── lib/
+│       │   └── socialConsent.ts               ← phase 3 consent helpers (added)
 │       └── components/
 │           ├── SocialDiscoveryPanel.tsx       ← phase 1 SSE tile grid
+│           ├── SocialConsentDialog.tsx        ← phase 3 consent dialog (added)
 │           └── SocialVerificationTab.tsx      ← tab + 2 AgentInsightPanel panels
 ├── scripts/
 │   └── rotate-qwork-secrets.sh                ← phase-0 secret rotation
@@ -40,7 +43,7 @@ QGI-demo/
 - [x] **Phase 0 — Plumbing.** LSIQ CORS + bearer auth (done in this repo's `sherlock_project/web/app.py`), env wiring, secret rotation, Supabase migrations.
 - [x] **Phase 1 — Discovery tab.** SSE-driven tile panel, new LoanDetail tab behind feature flag `VITE_QGI_DEMO_SOCIAL_VERIFY`, persists discovery results to `social_verifications.discovery_json`.
 - [x] **Phase 2 — QSS agent + scorecard.** Python QSS module (`sherlock_project/web/qss/`), two `AgentInsightPanel` panels wired into the tab (`socialsym`, `secondlooksym`), `qgiAgents.ts` shim, additive-only scorecard with 642 invariant tests passing.
-- [ ] **Phase 3 — Compliance polish.** Consent dialog, activity wiring, disclaimer banners.
+- [x] **Phase 3 — Compliance polish.** Borrower consent dialog + `social_consents` gate on every run, `consent_id` threaded onto `social_verifications`, permanent adverse-action disclaimer, revoke + re-sign support, audit events for sign/revoke.
 - [ ] **Phase 4 — Real QSS handoff.** Flip `QSS_PROVIDER=http`.
 
 ## Design choices (from the Apr 16 decisions)

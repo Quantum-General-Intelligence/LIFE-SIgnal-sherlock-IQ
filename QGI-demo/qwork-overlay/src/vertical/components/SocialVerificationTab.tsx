@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
@@ -22,7 +23,14 @@ import {
   CardTitle,
   Separator,
 } from "@quantum-general-intelligence/core/ui";
-import { Sparkles, ShieldCheck, History, Scale } from "lucide-react";
+import {
+  Sparkles,
+  ShieldCheck,
+  History,
+  Scale,
+  Lock,
+  FileSignature,
+} from "lucide-react";
 import {
   supabase,
   useToast,
@@ -31,6 +39,7 @@ import {
 import { logActivity } from "@/vertical/lib/auditLog";
 import { AgentInsightPanel } from "@/vertical/components/AgentInsightPanel";
 import { SocialDiscoveryPanel } from "@/vertical/components/SocialDiscoveryPanel";
+import { SocialConsentDialog } from "@/vertical/components/SocialConsentDialog";
 import { clientLabel } from "@/vertical/lib/lsiqClient";
 import type {
   LoanFacts,
@@ -46,6 +55,11 @@ import {
   previewSecondLook,
   runSecondLook,
 } from "@/vertical/lib/qgiAgents";
+import {
+  fetchActiveConsent,
+  revokeConsent,
+  type SocialConsent,
+} from "@/vertical/lib/socialConsent";
 
 export interface SocialVerificationTabProps {
   loanId: string;
@@ -88,6 +102,11 @@ export function SocialVerificationTab({
   const [discoveryResults, setDiscoveryResults] = useState<LSIQResult[]>([]);
   const [qss, setQss] = useState<QSSResponse | null>(null);
 
+  // Phase 3 — consent gate
+  const [consent, setConsent] = useState<SocialConsent | null>(null);
+  const [consentLoading, setConsentLoading] = useState(true);
+  const [consentDialogOpen, setConsentDialogOpen] = useState(false);
+
   const effectiveLoanFacts = useMemo<LoanFacts>(
     () => loanFacts ?? {},
     [loanFacts]
@@ -124,6 +143,43 @@ export function SocialVerificationTab({
     void loadHistory();
   }, [loadHistory]);
 
+  // Phase 3 — load any active consent on mount / loanId change.
+  useEffect(() => {
+    let cancelled = false;
+    setConsentLoading(true);
+    fetchActiveConsent(loanId)
+      .then((row) => {
+        if (!cancelled) setConsent(row);
+      })
+      .finally(() => {
+        if (!cancelled) setConsentLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loanId]);
+
+  const hasConsent = !!consent;
+
+  const handleRevoke = useCallback(async () => {
+    if (!consent) return;
+    try {
+      await revokeConsent(loanId, consent.id);
+      setConsent(null);
+      toast({
+        title: "Consent revoked",
+        description:
+          "Existing runs remain for the audit record. New runs are blocked until re-signed.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not revoke",
+        description: (err as Error).message,
+        variant: "destructive",
+      });
+    }
+  }, [consent, loanId, toast]);
+
   const latestRunId = history[0]?.id ?? null;
 
   const patchLatestRun = useCallback(
@@ -157,6 +213,16 @@ export function SocialVerificationTab({
     finished_at: string;
     error?: string;
   }) => {
+    if (!consent) {
+      toast({
+        title: "Consent required",
+        description: "Record borrower consent before saving a verification run.",
+        variant: "destructive",
+      });
+      setConsentDialogOpen(true);
+      return;
+    }
+
     setDeclaredHandles([{ platform: "primary", username: run.username }]);
     setDiscoveryResults(run.results);
     setQss(null);
@@ -174,6 +240,7 @@ export function SocialVerificationTab({
           started_at: run.started_at,
           finished_at: run.finished_at,
         },
+        consent_id: consent.id,
       },
     ]);
 
@@ -220,6 +287,12 @@ export function SocialVerificationTab({
 
   const handleRunSocial = useCallback(
     async (onProgress?: Parameters<typeof runSocialSignals>[1]) => {
+      if (!consent) {
+        setConsentDialogOpen(true);
+        throw new Error(
+          "Borrower consent required before running Quantum Social Signals."
+        );
+      }
       const result = await runSocialSignals(socialInput, onProgress);
       if (result.success && result.data) {
         const data = result.data as QSSResponse;
@@ -239,7 +312,7 @@ export function SocialVerificationTab({
       }
       return result;
     },
-    [socialInput, loanId, patchLatestRun]
+    [consent, socialInput, loanId, patchLatestRun]
   );
 
   const secondLookInput = useMemo(
@@ -253,6 +326,12 @@ export function SocialVerificationTab({
 
   const handleRunSecondLook = useCallback(
     async (onProgress?: Parameters<typeof runSecondLook>[1]) => {
+      if (!consent) {
+        setConsentDialogOpen(true);
+        throw new Error(
+          "Borrower consent required before running the Second-Look scorecard."
+        );
+      }
       const result = await runSecondLook(secondLookInput, onProgress);
       if (result.success && result.data) {
         await patchLatestRun({ second_look_json: result.data });
@@ -266,7 +345,7 @@ export function SocialVerificationTab({
       }
       return result;
     },
-    [secondLookInput, loanId, patchLatestRun]
+    [consent, secondLookInput, loanId, patchLatestRun]
   );
 
   // -------------------------------------------------------------------------
@@ -320,9 +399,18 @@ export function SocialVerificationTab({
       </Card>
 
       <PermissionGate require="loans.underwrite">
+        <ConsentCard
+          consent={consent}
+          loading={consentLoading}
+          onRequest={() => setConsentDialogOpen(true)}
+          onRevoke={handleRevoke}
+        />
+
         <SocialDiscoveryPanel
           defaultUsername={defaultUsername ?? lastRun?.discovery_json?.username}
           onRunComplete={handleDiscoveryComplete}
+          disabled={!hasConsent}
+          disabledReason="Borrower consent required. Record consent above to enable discovery."
         />
 
         <AgentInsightPanel
@@ -332,7 +420,9 @@ export function SocialVerificationTab({
           icon={<Sparkles className="h-4 w-4 text-primary" />}
           accentColor="primary"
           getRequestPreview={() =>
-            canRunSocial
+            !hasConsent
+              ? "{\n  \"message\": \"Record borrower consent first.\"\n}"
+              : canRunSocial
               ? previewSocialSignals(socialInput)
               : "{\n  \"message\": \"Run discovery first — no declared handles + discovery evidence to score yet.\"\n}"
           }
@@ -346,13 +436,25 @@ export function SocialVerificationTab({
           icon={<Scale className="h-4 w-4 text-secondary" />}
           accentColor="secondary"
           getRequestPreview={() =>
-            canRunSecondLook
+            !hasConsent
+              ? "{\n  \"message\": \"Record borrower consent first.\"\n}"
+              : canRunSecondLook
               ? previewSecondLook(secondLookInput)
               : "{\n  \"message\": \"Run QSS (socialsym) first — no QSSResponse to score yet.\"\n}"
           }
           onRun={handleRunSecondLook}
         />
+
+        <ScorecardDisclaimer />
       </PermissionGate>
+
+      <SocialConsentDialog
+        open={consentDialogOpen}
+        onOpenChange={setConsentDialogOpen}
+        loanId={loanId}
+        borrowerId={borrowerId ?? null}
+        onSigned={(c) => setConsent(c)}
+      />
 
       <Card>
         <CardHeader>
@@ -433,5 +535,97 @@ function Stat({
       </div>
       <p className="text-xs text-muted-foreground leading-snug">{body}</p>
     </div>
+  );
+}
+
+function ConsentCard({
+  consent,
+  loading,
+  onRequest,
+  onRevoke,
+}: {
+  consent: SocialConsent | null;
+  loading: boolean;
+  onRequest: () => void;
+  onRevoke: () => void;
+}) {
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-3 text-xs text-muted-foreground">
+          Checking borrower consent…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!consent) {
+    return (
+      <Card className="border-amber-500/40 bg-amber-500/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            Borrower consent required
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Runs are blocked until consent is recorded. This protects the
+            borrower and keeps the audit trail clean.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button size="sm" onClick={onRequest} className="gap-2">
+            <FileSignature className="h-3.5 w-3.5" />
+            Record borrower consent
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-emerald-500/40 bg-emerald-500/5">
+      <CardContent className="py-3 flex items-center justify-between gap-3 text-sm">
+        <div className="flex items-start gap-2 min-w-0">
+          <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <div className="font-medium">Consent on file</div>
+            <div className="text-xs text-muted-foreground truncate">
+              Purpose <code className="font-mono">{consent.purpose}</code> · v
+              <code className="font-mono">{consent.text_version}</code> · signed{" "}
+              {new Date(consent.signed_at).toLocaleString()}
+            </div>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={onRevoke}>
+          Revoke
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScorecardDisclaimer() {
+  return (
+    <Card className="border-dashed">
+      <CardContent className="py-3 text-xs text-muted-foreground leading-relaxed space-y-1.5">
+        <p className="flex items-start gap-2">
+          <Scale className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>
+            <strong className="text-foreground">Not an underwriting decision.</strong>{" "}
+            The Second-Look scorecard is an{" "}
+            <strong>additive-only advisory</strong> signal. It may support a
+            lift on a borderline outcome; it <strong>cannot</strong>{" "}
+            introduce a new denial reason or downgrade an AUS verdict. The
+            human underwriter remains the decision-maker and is responsible
+            for the final action on this file.
+          </span>
+        </p>
+        <p className="pl-5">
+          Signal provenance, scorecard inputs, and rationale are persisted on
+          each run for audit and for any adverse-action review required
+          under FCRA / ECOA.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

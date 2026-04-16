@@ -1,4 +1,4 @@
-# QGI-DEMO — Install Guide (Phase 0 + 1 + 2)
+# QGI-DEMO — Install Guide (Phase 0 + 1 + 2 + 3)
 
 Assumes both repos live side-by-side:
 
@@ -69,10 +69,12 @@ OVERLAY="../LIFE-SIgnal-sherlock-IQ/QGI-demo/qwork-overlay"
 cp -v "$OVERLAY/supabase/migrations/20260620_qgi_social_verification.sql" \
       supabase/migrations/
 
-# Client + components
+# Client + components + consent helpers (phase 3)
 cp -v "$OVERLAY/src/vertical/lib/lsiqClient.ts"                    src/vertical/lib/
 cp -v "$OVERLAY/src/vertical/lib/qgiAgents.ts"                     src/vertical/lib/
+cp -v "$OVERLAY/src/vertical/lib/socialConsent.ts"                 src/vertical/lib/
 cp -v "$OVERLAY/src/vertical/components/SocialDiscoveryPanel.tsx"  src/vertical/components/
+cp -v "$OVERLAY/src/vertical/components/SocialConsentDialog.tsx"   src/vertical/components/
 cp -v "$OVERLAY/src/vertical/components/SocialVerificationTab.tsx" src/vertical/components/
 
 # Env example
@@ -212,6 +214,72 @@ and asserts the additive-only invariant holds in each one.
 
 ---
 
+## Phase 3 — Compliance polish
+
+Phase 3 adds a hard-stop **borrower consent** gate and a permanent
+adverse-action disclaimer on the scorecard panel. Nothing runs until
+consent is recorded.
+
+### 3.1 What phase 3 changes
+
+- `SocialConsentDialog` — one-screen dialog rendering the current
+  consent copy, version-stamped with `CONSENT_TEXT_VERSION`.
+- `socialConsent.ts` — Supabase helpers: fetch active consent, sign,
+  revoke. Each sign/revoke writes a `loan_activity_log` row
+  (`social_verification_consent_signed` / `_revoked`).
+- `SocialVerificationTab` — shows a **Consent required / Consent on
+  file** card above Discovery. Discovery + both agent panels refuse
+  to run without a valid consent; the dialog auto-opens when an
+  officer tries.
+- Every `social_verifications` insert now carries `consent_id`, which
+  foreign-keys to `public.social_consents` (already in the migration).
+- Permanent **ScorecardDisclaimer** card at the bottom of the tab —
+  additive-only, human underwriter is the decision-maker, FCRA/ECOA
+  adverse-action language.
+
+### 3.2 Re-copy the overlay if you already applied phases 1–2
+
+```bash
+OVERLAY="../LIFE-SIgnal-sherlock-IQ/QGI-demo/qwork-overlay"
+cp -v "$OVERLAY/src/vertical/lib/socialConsent.ts"               src/vertical/lib/
+cp -v "$OVERLAY/src/vertical/components/SocialConsentDialog.tsx" src/vertical/components/
+cp -v "$OVERLAY/src/vertical/components/SocialDiscoveryPanel.tsx" src/vertical/components/   # added disabled props
+cp -v "$OVERLAY/src/vertical/components/SocialVerificationTab.tsx" src/vertical/components/
+```
+
+No new Supabase migration or env var is needed — `social_consents` +
+`social_verifications.consent_id` shipped in the phase-0 migration on
+purpose so phase 3 is a pure front-end change.
+
+### 3.3 Bumping consent copy later
+
+When you change the wording in `SocialConsentDialog.tsx`, bump
+`CONSENT_TEXT_VERSION` in `socialConsent.ts`. The next time any
+officer opens the tab on a loan, `fetchActiveConsent` will treat the
+old version as stale and show the consent card again. Prior rows
+remain for the audit trail.
+
+### 3.4 End-to-end demo flow (phase 0 + 1 + 2 + 3)
+
+1. Officer opens the loan → **Social** tab → sees an amber "Borrower
+   consent required" card. Run buttons are disabled.
+2. Clicks *Record borrower consent* → dialog renders the full purpose
+   statement with version stamp. Ticks the box, clicks *Record*.
+3. Card flips to green "Consent on file · v2026-04-01". Discovery +
+   both agents unlock.
+4. Runs discovery → QSS → Second-Look as in phase 2.
+5. Scorecard panel renders with the adverse-action **disclaimer card**
+   below it: additive-only, human underwriter decides.
+6. **Activity** tab now shows, in order:
+   - `social_verification_consent_signed`
+   - `social_verification_run`
+   - `social_verification_qss_run`
+   - `social_verification_second_look_run`
+7. Supabase Studio → `public.social_consents` has the new row;
+   `public.social_verifications.consent_id` points to it.
+
+---
+
 ## Acceptance checklist
 
 - [ ] `curl /api/meta` shows `auth_required: true`, `cors_configured: true`.
@@ -225,12 +293,19 @@ and asserts the additive-only invariant holds in each one.
 - [ ] `pytest tests/qgi_demo/` — 642 passed.
 - [ ] Turning `VITE_QGI_DEMO_SOCIAL_VERIFY=false` hides the tab entirely.
 - [ ] No committed `.env*` files in either repo's `git status`.
+- [ ] Without consent, *Run discovery* / *Run socialsym* / *Run secondlooksym* are all disabled.
+- [ ] Consent dialog writes one row to `public.social_consents` and logs `social_verification_consent_signed`.
+- [ ] `social_verifications.consent_id` is non-null on every phase-3 run.
+- [ ] Revoking consent logs `social_verification_consent_revoked` and re-disables the run buttons.
+- [ ] Scorecard panel has a permanent "Not an underwriting decision" disclaimer card.
 
 ---
 
 ## Rollback
 
-1. Delete the three overlay files from qwork.
+1. Delete the overlay files from qwork (`socialConsent.ts`,
+   `SocialConsentDialog.tsx`, the two Social components, `lsiqClient.ts`,
+   `qgiAgents.ts`).
 2. Revert the three `LoanDetail.tsx` hunks.
 3. `supabase migration down` on `20260620_qgi_social_verification.sql`.
 4. Unset the `VITE_QGI_DEMO_*` and `LSIQ_*` env vars.

@@ -45,6 +45,13 @@ export interface SocialDiscoveryPanelProps {
     finished_at: string;
     error?: string;
   }) => void;
+  /**
+   * Phase 3 — if true, all inputs/buttons are disabled and a short reason
+   * shown. Used to gate on consent without unmounting the panel.
+   */
+  disabled?: boolean;
+  /** Optional hint rendered when `disabled` is true. */
+  disabledReason?: string;
 }
 
 type RunState = "idle" | "running" | "done" | "error";
@@ -64,6 +71,8 @@ export function SocialDiscoveryPanel({
   defaultUsername = "",
   sites,
   onRunComplete,
+  disabled = false,
+  disabledReason,
 }: SocialDiscoveryPanelProps) {
   const [username, setUsername] = useState(defaultUsername);
   const [state, setState] = useState<RunState>("idle");
@@ -217,6 +226,12 @@ export function SocialDiscoveryPanel({
           </div>
         )}
 
+        {disabled && disabledReason && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {disabledReason}
+          </p>
+        )}
+
         <div className="flex flex-wrap items-end gap-3">
           <div className="grow min-w-[220px]">
             <Label htmlFor="qgi-demo-username">Declared handle</Label>
@@ -225,7 +240,7 @@ export function SocialDiscoveryPanel({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="e.g. alice-bakery"
-              disabled={state === "running"}
+              disabled={disabled || state === "running"}
               spellCheck={false}
             />
           </div>
@@ -237,7 +252,7 @@ export function SocialDiscoveryPanel({
           ) : (
             <Button
               onClick={start}
-              disabled={!username.trim() || !meta}
+              disabled={disabled || !username.trim() || !meta}
               className="gap-1"
             >
               {state === "done" || state === "error" ? (
