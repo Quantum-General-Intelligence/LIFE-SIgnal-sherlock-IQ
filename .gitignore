@@ -4,6 +4,8 @@ bin/
 lib/
 pyvenv.cfg
 poetry.lock
+!QGI-demo/**/lib/
+!QGI-demo/**/bin/
 
 # Regression Testing
 .coverage
@@ -18,6 +20,7 @@ __pycache__/
 
 # Pip
 src/
+!QGI-demo/**/src/
 
 # Devel, Build, and Installation
 *.egg-info/
@@ -45,3 +48,9 @@ tests/.excluded_sites
 
 # Vim swap files
 *.swp
+
+# Local env overrides (never commit real secrets)
+.env
+.env.local
+.env.*.local
+!.env.example

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ short_name }}</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="/static/logo.svg" alt="" class="logo" />
+        <div class="brand-text">
+          <div class="brand-name">{{ short_name }}</div>
+          <div class="brand-sub">{{ long_name }}</div>
+        </div>
+      </div>
+      <div class="meta">
+        <span class="pill" title="Soft rebrand of {{ upstream }}">v{{ version }}</span>
+        <a class="pill pill-link" href="/docs" target="_blank" rel="noopener">API docs</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h1>Probe a username across the social web</h1>
+        <p class="lede">
+          Enter a handle, hit scan, and watch results stream in live from
+          <span id="site-count">hundreds of</span> sites. Powered under the hood by
+          the open-source <em>{{ upstream }}</em> engine — no internal changes,
+          UI and branding only.
+        </p>
+
+        <form id="search-form" class="search" autocomplete="off">
+          <div class="input-group">
+            <span class="prefix">@</span>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              placeholder="e.g. johndoe"
+              maxlength="64"
+              required
+              spellcheck="false"
+              autocapitalize="off"
+            />
+            <button type="submit" id="submit-btn">Scan</button>
+            <button type="button" id="stop-btn" class="secondary" hidden>Stop</button>
+          </div>
+
+          <details class="opts">
+            <summary>Options</summary>
+            <div class="opts-grid">
+              <label>
+                <span>Timeout (s)</span>
+                <input id="timeout" type="number" min="1" max="180" value="30" />
+              </label>
+              <label class="check">
+                <input id="include-nsfw" type="checkbox" />
+                <span>Include NSFW sites</span>
+              </label>
+              <label class="check">
+                <input id="only-found" type="checkbox" checked />
+                <span>Show only found</span>
+              </label>
+              <label class="wide">
+                <span>Site filter (comma-separated, optional)</span>
+                <input id="sites" type="text" placeholder="GitHub, Reddit, HackerNews" />
+              </label>
+            </div>
+          </details>
+        </form>
+
+        <div id="status" class="status" hidden>
+          <div class="status-row">
+            <div class="progress"><div class="bar" id="progress-bar"></div></div>
+            <div class="counts">
+              <span><strong id="count-done">0</strong>/<span id="count-total">0</span> probed</span>
+              <span class="sep">·</span>
+              <span class="ok"><strong id="count-found">0</strong> found</span>
+              <span class="sep">·</span>
+              <span class="warn"><strong id="count-waf">0</strong> WAF</span>
+              <span class="sep">·</span>
+              <span class="err"><strong id="count-err">0</strong> errors</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="results" id="results" hidden>
+        <div class="results-head">
+          <h2>Results for <span id="results-target">—</span></h2>
+          <div class="filters">
+            <button class="chip active" data-filter="found">Found</button>
+            <button class="chip" data-filter="all">All</button>
+            <button class="chip" data-filter="waf">WAF</button>
+            <button class="chip" data-filter="error">Error</button>
+          </div>
+        </div>
+        <ul id="result-list" class="result-list"></ul>
+        <div id="empty" class="empty" hidden>No matches yet.</div>
+      </section>
+    </main>
+
+    <footer>
+      <span>{{ short_name }} — a soft rebrand of {{ upstream }}.</span>
+      <span class="muted">No internals modified; UI wrapper only.</span>
+    </footer>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

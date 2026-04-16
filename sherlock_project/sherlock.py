@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
 
 """
-Sherlock: Find Usernames Across Social Networks Module
+QGI Life-Signals-IQ: Username Intelligence Across Social Networks
 
-This module contains the main logic to search for usernames at social
-networks.
+Main module. Soft rebrand of the Sherlock Project; module path and symbols
+are preserved for compatibility with existing integrations.
 """
 
 import sys

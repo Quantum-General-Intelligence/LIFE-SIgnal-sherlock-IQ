@@ -20,7 +20,8 @@ ENV SHERLOCK_ENV=docker
 
 LABEL org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vcs-url=$VCS_URL \
-      org.label-schema.name="Sherlock" \
+      org.label-schema.name="QGI Life-Signals-IQ" \
+      org.label-schema.description="QGI Life-Signals-IQ (soft rebrand of Sherlock)" \
       org.label-schema.version=$VERSION_TAG \
       website="https://sherlockproject.xyz"
 

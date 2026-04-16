@@ -1,61 +1,79 @@
 <p align="center">
   <br>
-  <a href="https://sherlock-project.github.io/" target="_blank"><img src="images/sherlock-logo.png" alt="sherlock"/></a>
+  <strong><span style="font-size: 1.6em">QGI Life-Signals-IQ</span></strong>
   <br>
-  <span>Hunt down social media accounts by username across <a href="https://sherlockproject.xyz/sites">400+ social networks</a></span>
+  <em>Username Intelligence Across 400+ Social Networks</em>
+  <br>
+  <sub>A soft rebrand of the open-source <a href="https://github.com/sherlock-project/sherlock">Sherlock Project</a></sub>
   <br>
 </p>
 
 <p align="center">
-  <a href="https://sherlockproject.xyz/installation">Installation</a>
+  <a href="#installation">Installation</a>
   &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
-  <a href="https://sherlockproject.xyz/usage">Usage</a>
+  <a href="#general-usage">Usage</a>
   &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
-  <a href="https://sherlockproject.xyz/contribute">Contributing</a>
+  <a href="#credits">Credits</a>
 </p>
 
 <p align="center">
 <img width="70%" height="70%" src="images/demo.png" alt="demo"/>
 </p>
 
+## About
+
+**QGI Life-Signals-IQ** is QGI's internal branding of the Sherlock OSINT tool.
+It scans a large set of social networks for a given username and reports
+discovered profile URLs. The rebrand is **soft**: the Python package name
+(`sherlock_project`) and existing `sherlock` CLI are preserved so that
+existing scripts, Docker images, and Apify actors keep working.
+
+New CLI aliases:
+
+- `qgi-life-signals-iq`
+- `life-signals-iq`
+- `sherlock` (upstream-compatible)
 
 ## Installation
 
-> [!WARNING]  
-> Packages for ParrotOS and Ubuntu 24.04, maintained by a third party, appear to be __broken__.  
+> [!WARNING]
+> Packages for ParrotOS and Ubuntu 24.04, maintained by a third party, appear to be __broken__.
 > Users of these systems should defer to [`uv`](https://docs.astral.sh/uv/)/`pipx`/`pip` or Docker.
 
 | Method | Notes |
 | - | - |
 | `pipx install sherlock-project` | `pip` or [`uv`](https://docs.astral.sh/uv/) may be used in place of `pipx` |
-| `docker run -it --rm sherlock/sherlock` |
+| `docker run -it --rm sherlock/sherlock` | Upstream Docker image still works |
 | `dnf install sherlock-project` | |
 
-Community-maintained packages are available for Debian (>= 13), Ubuntu (>= 22.10), Homebrew, Kali, and BlackArch. These packages are not directly supported or maintained by the Sherlock Project.
+For local development:
 
-See all alternative installation methods [here](https://sherlockproject.xyz/installation).
+```bash
+pip install -e .
+qgi-life-signals-iq --version
+```
 
 ## General usage
 
 To search for only one user:
 ```bash
-sherlock user123
+qgi-life-signals-iq user123
 ```
 
 To search for more than one user:
 ```bash
-sherlock user1 user2 user3
+qgi-life-signals-iq user1 user2 user3
 ```
 
-Accounts found will be stored in an individual text file with the corresponding username (e.g ```user123.txt```).
+Accounts found will be stored in an individual text file with the corresponding username (e.g. `user123.txt`).
 
 ```console
-$ sherlock --help
-usage: sherlock [-h] [--version] [--verbose] [--folderoutput FOLDEROUTPUT] [--output OUTPUT] [--csv] [--xlsx] [--site SITE_NAME] [--proxy PROXY_URL] [--dump-response]
+$ qgi-life-signals-iq --help
+usage: qgi-life-signals-iq [-h] [--version] [--verbose] [--folderoutput FOLDEROUTPUT] [--output OUTPUT] [--csv] [--xlsx] [--site SITE_NAME] [--proxy PROXY_URL] [--dump-response]
                 [--json JSON_FILE] [--timeout TIMEOUT] [--print-all] [--print-found] [--no-color] [--browse] [--local] [--nsfw] [--txt] [--ignore-exclusions]
                 USERNAMES [USERNAMES ...]
 
-Sherlock: Find Usernames Across Social Networks (Version 0.16.0)
+QGI Life-Signals-IQ: Username Intelligence Across Social Networks (Version 0.16.0)
 
 positional arguments:
   USERNAMES             One or more usernames to check with social networks. Check similar usernames using {?} (replace to '_', '-', '.').
@@ -90,24 +108,18 @@ options:
 
 ## Credits
 
-Thank you to everyone who has contributed to Sherlock! ❤️
+QGI Life-Signals-IQ is a soft rebrand of the [Sherlock Project](https://github.com/sherlock-project/sherlock).
+All detection logic, site manifests, and probing heuristics are the work of the Sherlock maintainers and contributors.
 
 <a href="https://github.com/sherlock-project/sherlock/graphs/contributors">
   <img src="https://contrib.rocks/image?&columns=25&max=10000&&repo=sherlock-project/sherlock" alt="contributors"/>
 </a>
 
-## Star History
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=sherlock-project/sherlock&type=Date&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=sherlock-project/sherlock&type=Date" />
-  <img alt="Sherlock Project Star History Chart" src="https://api.star-history.com/svg?repos=sherlock-project/sherlock&type=Date" />
-</picture>
-
 ## License
 
 MIT © Sherlock Project<br/>
-Creator - [Siddharth Dushantha](https://github.com/sdushantha)
+Creator (upstream) — [Siddharth Dushantha](https://github.com/sdushantha)<br/>
+Rebrand — QGI
 
 <!-- Reference Links -->
 

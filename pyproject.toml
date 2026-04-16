@@ -9,7 +9,7 @@ source = "init"
 [tool.poetry]
 name = "sherlock-project"
 version = "0.16.0"
-description = "Hunt down social media accounts by username across social networks"
+description = "QGI Life-Signals-IQ (soft rebrand of Sherlock) — hunt down social media accounts by username across social networks"
 license = "MIT"
 authors = [
     "Siddharth Dushantha <siddharth.dushantha@gmail.com>"
@@ -53,6 +53,12 @@ stem = "^1.8.0"
 pandas = "^2.2.1"
 openpyxl = "^3.0.10"
 tomli = "^2.2.1"
+fastapi = { version = "^0.115.0", optional = true }
+uvicorn = { version = "^0.30.0", optional = true, extras = ["standard"] }
+jinja2 = { version = "^3.1.0", optional = true }
+
+[tool.poetry.extras]
+web = ["fastapi", "uvicorn", "jinja2"]
 
 [tool.poetry.group.dev.dependencies]
 jsonschema = "^4.0.0"
@@ -66,3 +72,7 @@ defusedxml = "^0.7.1"
 
 [tool.poetry.scripts]
 sherlock = 'sherlock_project.sherlock:main'
+qgi-life-signals-iq = 'sherlock_project.sherlock:main'
+life-signals-iq = 'sherlock_project.sherlock:main'
+qgi-life-signals-iq-web = 'sherlock_project.web.cli:main'
+life-signals-iq-web = 'sherlock_project.web.cli:main'
